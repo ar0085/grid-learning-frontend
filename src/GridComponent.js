@@ -1,4 +1,5 @@
 import { grid } from "@mui/system";
+import { setSelectionRange } from "@testing-library/user-event/dist/utils";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { createDummyObj } from "./helper";
@@ -6,14 +7,24 @@ import LegendComponent from "./LegendComponent";
 
 const GridComponent = () => {
   // stores index of cell machine currently is at
-  const currIdx = useRef([10, 30]);
-  const gridMap = createDummyObj(20, 60);
+  const currIdx = useRef(
+    sessionStorage.getItem("currIdx")
+      ? JSON.parse(sessionStorage.getItem("currIdx"))
+      : [10, 30]
+  );
+  const gridMap = sessionStorage.getItem("gridMap")
+    ? JSON.parse(sessionStorage.getItem("gridMap"))
+    : createDummyObj(20, 60);
   // stores the index where machine has to perform next operation
   const destIdx = useRef(currIdx.current);
   // stores the value of next operation to perform
   const nextOp = useRef("idle");
   // stores the current state of machine
-  const machineState = useRef("idle");
+  const machineState = useRef(
+    sessionStorage.getItem("machineState")
+      ? sessionStorage.getItem("machineState")
+      : "idle"
+  );
 
   /*
   setAsPath is used to mark cells as a part of path while
@@ -39,6 +50,7 @@ const GridComponent = () => {
         .getElementById(`gci-${pathIdx[0]}-${pathIdx[1]}`)
         .setAttribute("cellStatus", "Path");
       gridMap[`status-${pathIdx[0]}-${pathIdx[1]}`] = "Path";
+      sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
     }
   };
 
@@ -78,6 +90,7 @@ const GridComponent = () => {
     const focusedIdx = destIndex;
     //set machineState to focus
     machineState.current = "focus";
+    sessionStorage.setItem("machineState", machineState.current);
     const cellPrevState = document
       .getElementById(`gci-${focusedIdx[0]}-${focusedIdx[1]}`)
       .getAttribute("cellStatus");
@@ -86,6 +99,7 @@ const GridComponent = () => {
       .getElementById(`gci-${focusedIdx[0]}-${focusedIdx[1]}`)
       .setAttribute("cellStatus", "Focused");
     gridMap[`status-${focusedIdx[0]}-${focusedIdx[1]}`] = "Focused";
+    sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
     //set nextOp to be default as capture
     nextOp.current = "capture";
 
@@ -104,11 +118,13 @@ const GridComponent = () => {
             .getElementById(`gci-${focusedIdx[0]}-${focusedIdx[1]}`)
             .setAttribute("cellStatus", "Path");
           gridMap[`status-${focusedIdx[0]}-${focusedIdx[1]}`] = "Path";
+          sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
         } else {
           document
             .getElementById(`gci-${focusedIdx[0]}-${focusedIdx[1]}`)
             .setAttribute("cellStatus", "Captured");
           gridMap[`status-${focusedIdx[0]}-${focusedIdx[1]}`] = "Captured";
+          sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
         }
         //call focus function on the new destination index
         focus(destIdx.current);
@@ -128,11 +144,13 @@ const GridComponent = () => {
     const captureIdx = destIndex;
     //set machine state to capture
     machineState.current = "capture";
+    sessionStorage.setItem("machineState", machineState.current);
     //set captureIdx "cellStatus" attribute to "Capturing"
     document
       .getElementById(`gci-${captureIdx[0]}-${captureIdx[1]}`)
       .setAttribute("cellStatus", "Capturing");
     gridMap[`status-${captureIdx[0]}-${captureIdx[1]}`] = "Capturing";
+    sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
     //set nextOp to default state of idle
     nextOp.current = "idle";
     await setTimeout(() => {
@@ -141,10 +159,12 @@ const GridComponent = () => {
         .getElementById(`gci-${captureIdx[0]}-${captureIdx[1]}`)
         .setAttribute("cellStatus", "Captured");
       gridMap[`status-${captureIdx[0]}-${captureIdx[1]}`] = "Captured";
+      sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
       //Check if nextOp is changed i.e. user has given more keyStroke input
       if (nextOp.current === "idle") {
         //if nextOp is not changed then machine should go to Idle state
         machineState.current = "idle";
+        sessionStorage.setItem("machineState", machineState.current);
         return;
       } else {
         //call focus function on the new destination index
@@ -159,6 +179,13 @@ const GridComponent = () => {
     document
       .getElementById(`gci-${currIdx.current[0]}-${currIdx.current[1]}`)
       .setAttribute("activeCell", true);
+    if (machineState.current !== "idle") {
+      if (machineState.current === "focus") {
+        focus(currIdx.current);
+      } else {
+        capture(currIdx.current);
+      }
+    }
   }, []);
   //Over here 0 means the user is moving in a column,
   //1 means the user is moving in a row;
@@ -175,6 +202,7 @@ const GridComponent = () => {
     setAsPath(response.data.destIdx);
     console.log(gridMap); //Focus function is called here to start the machine when
     //state is set to idle
+    console.log(machineState.current);
     if (machineState.current === "idle") {
       focus(response.data.destIdx);
     }
@@ -224,6 +252,7 @@ const GridComponent = () => {
       //updating the currCoord to point to new selected index
       currCoord[dir] += change;
       currIdx.current = currCoord;
+      sessionStorage.setItem("currIdx", JSON.stringify(currIdx.current));
       //set current cell "activeCell" attribute to "true"
       document
         .getElementById(`gci-${currCoord[0]}-${currCoord[1]}`)
@@ -237,6 +266,13 @@ const GridComponent = () => {
     for (let i = 0; i < 20; i++) {
       const currRow = [];
       for (let j = 0; j < 60; j++) {
+        if (
+          gridMap[`status-${i}-${j}`] === "Focused" ||
+          gridMap[`status-${i}-${j}`] === "Capturing"
+        ) {
+          gridMap[`status-${i}-${j}`] = "Path";
+          sessionStorage.setItem("gridMap", JSON.stringify(gridMap));
+        }
         currRow.push(gridMap[`status-${i}-${j}`]);
       }
       grid.push(currRow);
